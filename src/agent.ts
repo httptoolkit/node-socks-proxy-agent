@@ -9,18 +9,6 @@ import { SocksProxyAgentOptions } from '.';
 
 const debug = createDebug('socks-proxy-agent');
 
-function dnsLookup(host: string): Promise<string> {
-	return new Promise((resolve, reject) => {
-		dns.lookup(host, (err, res) => {
-			if (err) {
-				reject(err);
-			} else {
-				resolve(res);
-			}
-		});
-	});
-}
-
 function parseSocksProxy(
 	opts: SocksProxyAgentOptions
 ): { lookup: boolean; proxy: SocksProxy } {
@@ -113,7 +101,7 @@ function parseSocksProxy(
  * @api public
  */
 export default class SocksProxyAgent extends Agent {
-	private lookup: boolean;
+	private shouldLookup: boolean;
 	private proxy: SocksProxy;
 	private tlsConnectionOptions: tls.ConnectionOptions;
 
@@ -132,7 +120,7 @@ export default class SocksProxyAgent extends Agent {
 		super(opts);
 
 		const parsedProxy = parseSocksProxy(opts);
-		this.lookup = parsedProxy.lookup;
+		this.shouldLookup = parsedProxy.lookup;
 		this.proxy = parsedProxy.proxy;
 		this.tlsConnectionOptions = opts.tls || {};
 	}
@@ -147,16 +135,26 @@ export default class SocksProxyAgent extends Agent {
 		req: ClientRequest,
 		opts: RequestOptions
 	): Promise<net.Socket> {
-		const { lookup, proxy } = this;
-		let { host, port, timeout } = opts;
+		const { shouldLookup, proxy } = this;
+		let { host, port, timeout, lookup } = opts;
 
 		if (!host) {
 			throw new Error('No `host` defined!');
 		}
 
-		if (lookup) {
+		if (shouldLookup) {
 			// Client-side DNS resolution for "4" and "5" socks proxy versions.
-			host = await dnsLookup(host);
+			host = await new Promise<string>((resolve, reject) => {
+				// Use the request's custom lookup, if one was configured:
+				const lookupFn = lookup ?? dns.lookup;
+				lookupFn(host!, {}, (err, res) => {
+					if (err) {
+						reject(err);
+					} else {
+						resolve(res);
+					}
+				});
+			});
 		}
 
 		const socksOpts: SocksClientOptions = {
