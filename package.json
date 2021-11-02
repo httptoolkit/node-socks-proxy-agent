@@ -1,6 +1,6 @@
 {
   "name": "@httptoolkit/socks-proxy-agent",
-  "version": "6.1.0",
+  "version": "6.1.1-use-request-lookup-fix.0",
   "description": "A SOCKS proxy `http.Agent` implementation for HTTP and HTTPS",
   "main": "dist/index",
   "typings": "dist/index",
